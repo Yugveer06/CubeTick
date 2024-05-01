@@ -1,0 +1,15 @@
+import { create } from "zustand";
+
+export const useAppState = create((set) => ({
+    sortOrder: "desc",
+    setSortOrder: (e) => set(() => ({ sortOrder: e })),
+
+    solveId: null,
+    setSolveId: (e) => set(() => ({ solveId: e })),
+
+    isSolveInfoModal: false,
+    setIsSolveInfoModal: (e) => set(() => ({ isSolveInfoModal: e })),
+
+    isDeleteSolveModal: false,
+    setIsDeleteSolveModal: (e) => set(() => ({ isDeleteSolveModal: e })),
+}));

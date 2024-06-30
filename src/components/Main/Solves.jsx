@@ -1,13 +1,7 @@
-import React, { useState } from "react";
-import {
-  IconArrowDown,
-  IconCheck,
-  IconChevronDown,
-  IconChevronUp,
-} from "@tabler/icons-react";
+import React from "react";
+import { IconArrowDown, IconInfoCircle } from "@tabler/icons-react";
 import RippleButton from "../RippleButton/RippleButton";
 import formatTime from "../../utils/formatTime";
-import * as Select from "@radix-ui/react-select";
 import {
   getMinAverageId,
   getMinSolveTimeId,
@@ -15,6 +9,7 @@ import {
 } from "../../utils/getTimes";
 import { useAppState } from "../../../store";
 import { motion as m } from "framer-motion";
+import SelectComp from "../Select";
 
 const Solves = ({ solvesWidth, sessionData, setSessionData }) => {
   const sessionSolves =
@@ -24,13 +19,23 @@ const Solves = ({ solvesWidth, sessionData, setSessionData }) => {
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
 
-  const [sortOrder, setSortOrder, setSolveId, setIsSolveInfoModal] =
-    useAppState((state) => [
-      state.sortOrder,
-      state.setSortOrder,
-      state.setSolveId,
-      state.setIsSolveInfoModal,
-    ]);
+  const [
+    sortOrder,
+    setSortOrder,
+    setSolveId,
+    sessionName,
+    setSessionName,
+    setIsSolveInfoModal,
+    setIsSessionInfoModal,
+  ] = useAppState((state) => [
+    state.sortOrder,
+    state.setSortOrder,
+    state.setSolveId,
+    state.sessionName,
+    state.setSessionName,
+    state.setIsSolveInfoModal,
+    state.setIsSessionInfoModal,
+  ]);
 
   // sort based on start time of a solve
   const sortedSolves = sessionData
@@ -41,6 +46,11 @@ const Solves = ({ solvesWidth, sessionData, setSessionData }) => {
         return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
       })
     : [];
+
+  const handleSessionInfoClick = (id) => {
+    setSessionName(sessionData.currentSession);
+    setIsSessionInfoModal(true);
+  };
 
   const handleSolveClick = (id) => {
     setSolveId(id);
@@ -63,6 +73,12 @@ const Solves = ({ solvesWidth, sessionData, setSessionData }) => {
               sessionData={sessionData}
               setSessionData={setSessionData}
             />
+            <RippleButton
+              onClick={handleSessionInfoClick}
+              className="rounded-full text-green-900 dark:text-slate-100"
+            >
+              <IconInfoCircle size={24} />
+            </RippleButton>
           </div>
         </header>
         <main className="w-full overflow-y-auto overflow-x-clip p-2 scrollbar-thin scrollbar-thumb-green-900/50 scrollbar-thumb-rounded hover:scrollbar-thumb-green-900 dark:scrollbar-thumb-slate-500 dark:hover:scrollbar-thumb-slate-600">
@@ -149,67 +165,5 @@ const Solves = ({ solvesWidth, sessionData, setSessionData }) => {
     </div>
   );
 };
-
-const SelectComp = ({ sessionData, setSessionData }) => {
-  return (
-    <Select.Root
-      defaultValue="Default"
-      value={sessionData.currentSession}
-      onValueChange={(e) =>
-        setSessionData((prev) => ({ ...prev, currentSession: e }))
-      }
-    >
-      <Select.Trigger
-        className="flex items-center gap-2 rounded bg-green-100 px-1 text-green-950 hover:bg-green-50 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
-        aria-label="Session"
-      >
-        <Select.Value />
-        <Select.Icon>
-          <IconChevronDown size={20} />
-        </Select.Icon>
-      </Select.Trigger>
-      <Select.Portal>
-        <Select.Content className="absolute z-50 overflow-hidden rounded bg-green-50 shadow-xl dark:bg-slate-700">
-          <Select.ScrollUpButton className="flex items-center justify-center bg-green-300 dark:bg-slate-500">
-            <IconChevronUp
-              size={20}
-              className="text-black dark:text-slate-100"
-            />
-          </Select.ScrollUpButton>
-          <Select.Viewport className="p-1">
-            {Object.keys(sessionData.sessions).map((item, i) => (
-              <SelectItem
-                key={i}
-                className="flex cursor-default items-center gap-2 rounded px-1 text-black outline-none data-[highlighted]:bg-green-200 data-[disabled]:text-neutral-400 dark:text-slate-100 dark:data-[highlighted]:bg-slate-500/50"
-                value={`${item}`}
-              >
-                {item}
-              </SelectItem>
-            ))}
-          </Select.Viewport>
-          <Select.ScrollDownButton className="flex items-center justify-center bg-green-300 dark:bg-slate-500">
-            <IconChevronDown
-              size={20}
-              className="text-black dark:text-slate-100"
-            />
-          </Select.ScrollDownButton>
-        </Select.Content>
-      </Select.Portal>
-    </Select.Root>
-  );
-};
-
-const SelectItem = React.forwardRef(
-  ({ children, className, ...props }, forwardedRef) => {
-    return (
-      <Select.Item className={className} {...props} ref={forwardedRef}>
-        <Select.ItemText>{children}</Select.ItemText>
-        <Select.ItemIndicator>
-          <IconCheck size={16} />
-        </Select.ItemIndicator>
-      </Select.Item>
-    );
-  },
-);
 
 export default Solves;

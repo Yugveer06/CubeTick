@@ -23,16 +23,12 @@ const Solves = ({ solvesWidth, sessionData, setSessionData }) => {
     sortOrder,
     setSortOrder,
     setSolveId,
-    sessionName,
-    setSessionName,
     setIsSolveInfoModal,
     setIsSessionInfoModal,
   ] = useAppState((state) => [
     state.sortOrder,
     state.setSortOrder,
     state.setSolveId,
-    state.sessionName,
-    state.setSessionName,
     state.setIsSolveInfoModal,
     state.setIsSessionInfoModal,
   ]);
@@ -48,7 +44,6 @@ const Solves = ({ solvesWidth, sessionData, setSessionData }) => {
     : [];
 
   const handleSessionInfoClick = (id) => {
-    setSessionName(sessionData.currentSession);
     setIsSessionInfoModal(true);
   };
 
@@ -74,6 +69,7 @@ const Solves = ({ solvesWidth, sessionData, setSessionData }) => {
               setSessionData={setSessionData}
             />
             <RippleButton
+              tooltip="Session Info"
               onClick={handleSessionInfoClick}
               className="rounded-full text-green-900 dark:text-slate-100"
             >

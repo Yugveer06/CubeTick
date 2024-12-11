@@ -1,6 +1,17 @@
+import * as Dialog from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
-import React, { useEffect, useState } from "react";
-import { puzzles } from "cubing/puzzles";
+import { AnimatePresence, motion as m, useReducedMotion } from "framer-motion";
+import React from "react";
+import { useAppState } from "../../../store";
+import formatTime from "../../utils/formatTime";
+import RippleButton from "../RippleButton/RippleButton";
+import CommandMenuItem from "./CommandMenuItem";
+import {
+  getInputPlaceholder,
+  getMainMenuItems,
+  MENU_PAGES,
+} from "./commandMenuConfig";
+import useCommandMenu from "./useCommandMenu";
 import {
   IconCube,
   IconDeviceDesktop,
@@ -12,73 +23,84 @@ import {
   IconSquare,
   IconTrash,
 } from "@tabler/icons-react";
-import RippleButton from "../RippleButton/RippleButton";
-import * as Dialog from "@radix-ui/react-dialog";
-import { AnimatePresence, motion as m, useReducedMotion } from "framer-motion";
-import formatTime from "../../utils/formatTime";
-import { useAppState } from "../../../store";
+import { IconSun } from "@tabler/icons-react";
+import { IconMoon } from "@tabler/icons-react";
+import { IconMoon2 } from "@tabler/icons-react";
+import { IconMoonFilled } from "@tabler/icons-react";
+import { IconMoonStars } from "@tabler/icons-react";
+import { useToast } from "../../context/ToastContext";
 
 const CommandMenu = ({
   generateScramble,
   sessionData,
   setSessionData,
   sessionSolves,
-  deleteSolve,
   setTwistyVisualization,
   setDisableTimerInput,
 }) => {
+  const { addToast } = useToast();
   const shouldReduceMotion = useReducedMotion();
-
-  const [open, setOpen] = useState(false);
-  const [value, onValueChange] = useState("");
-  const [search, setSearch] = useState("");
-  const [pages, setPages] = useState([]);
-  const page = pages[pages.length - 1];
   const [setSolveId, setIsDeleteSolveModal] = useAppState((state) => [
     state.setSolveId,
     state.setIsDeleteSolveModal,
   ]);
 
-  // Toggle the menu when ⌘K is pressed
-  useEffect(() => {
-    const down = (e) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((open) => !open);
-      }
-    };
+  const {
+    open,
+    setOpen,
+    value,
+    onValueChange,
+    search,
+    setSearch,
+    pages,
+    setPages,
+    page,
+    navigateBack,
+    navigateToPage,
+    resetNavigation,
+  } = useCommandMenu(setDisableTimerInput);
 
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, []);
+  const handlers = {
+    generateScramble,
+    setOpen,
+    navigateToPage,
+    resetNavigation,
+  };
 
   const lightTheme = () => {
     document.documentElement.classList.remove("dark");
+    addToast({
+      title: "Light theme selected",
+      description: "The light theme has been selected.",
+      variant: "success",
+    });
     setOpen(false);
-    setPages([]);
+    resetNavigation();
   };
 
   const darkTheme = () => {
     document.documentElement.classList.add("dark");
+    addToast({
+      title: "Dark theme selected",
+      description: "The dark theme has been selected.",
+      variant: "success",
+    });
     setOpen(false);
-    setPages([]);
+    resetNavigation();
   };
 
   const createNewSession = () => {
     setSessionData((prev) => ({
       ...prev,
       sessions: { ...prev.sessions, [search]: { solves: [] } },
-    }));
-    setPages([]);
-    setOpen(false);
-  };
-
-  const selectSession = () => {
-    setSessionData((prev) => ({
-      ...prev,
       currentSession: search,
     }));
-    setPages([]);
+    addToast({
+      title: "Session created",
+      description: "A new session has been created and selected.",
+      variant: "success",
+    });
+    resetNavigation();
     setOpen(false);
   };
 
@@ -95,61 +117,224 @@ const CommandMenu = ({
       if (prev.currentSession === oldName) {
         updatedSessionData.currentSession = newName;
       }
-
       return updatedSessionData;
     });
-    setPages([]);
-    setSearch("");
+    addToast({
+      title: "Session renamed",
+      description:
+        "The session has been renamed from " + oldName + " to " + newName + ".",
+      variant: "success",
+    });
+    resetNavigation();
     setOpen(false);
   };
 
   const deleteSession = (keyToDelete) => {
-    if (sessionData.currentSession === keyToDelete) {
-      setSessionData((prev) => {
-        const { [keyToDelete]: deletedKey, ...rest } = prev.sessions;
-        const updatedSessionData = {
-          currentSession: "Default",
-          sessions: { ...rest },
-        };
-        return updatedSessionData;
-      });
-    } else {
-      setSessionData((prev) => {
-        const { [keyToDelete]: deletedKey, ...rest } = prev.sessions;
-        const updatedSessionData = {
-          ...prev,
-          sessions: { ...rest },
-        };
-        return updatedSessionData;
-      });
+    setSessionData((prev) => {
+      const { [keyToDelete]: deletedKey, ...rest } = prev.sessions;
+      return {
+        ...prev,
+        currentSession:
+          prev.currentSession === keyToDelete ? "Default" : prev.currentSession,
+        sessions: { ...rest },
+      };
+    });
+    addToast({
+      title: "Session deleted",
+      description: "The session has been deleted.",
+      variant: "success",
+    });
+    resetNavigation();
+    setOpen(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape" || (e.key === "Backspace" && !search)) {
+      e.preventDefault();
+      setSearch("");
+      navigateBack();
+    }
+    if (pages.length === 0 && e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
     }
   };
 
-  const getInputPlaceholder = () => {
-    const pageString = pages.join(", ");
+  const renderPageContent = () => {
+    if (!page) {
+      const mainItems = getMainMenuItems(handlers);
+      const searchLower = search.toLowerCase();
 
-    switch (pageString) {
-      case "delete solve":
-        return "Delete Solve";
-      case "theme":
-        return "Choose your theme";
-      case "scramble visualization":
-        return "Choose your preferred visualization";
-      case "create session":
-        return "Enter session name";
-      case "rename session":
-        return "Choose the session to rename";
-      case "rename session, new name":
-        return "Enter new session name";
+      // If no search, just show main menu items
+      if (!search) {
+        return mainItems.map((item, index) => (
+          <CommandMenuItem key={index} {...item} />
+        ));
+      }
+
+      // First check for exact label matches at the root level
+      const rootMatches = mainItems.filter((item) =>
+        item.label.toLowerCase().includes(searchLower),
+      );
+
+      // If we found matches at root level, return those
+      if (rootMatches.length > 0) {
+        return rootMatches.map((item, index) => (
+          <CommandMenuItem key={index} {...item} />
+        ));
+      }
+
+      // If no root matches, search through children (next level)
+      const getChildMatches = (items) => {
+        return items.flatMap((item) => {
+          const results = [];
+
+          if (item.children) {
+            item.children.forEach((child) => {
+              if (
+                (child.label + " " + (child.keywords || ""))
+                  .toLowerCase()
+                  .includes(searchLower)
+              ) {
+                results.push({
+                  ...item,
+                  label: `${item.label} → ${child.label}`,
+                  onSelect: () => {
+                    item.onSelect();
+                    setTimeout(() => {
+                      if (child.label === "Light Theme") {
+                        lightTheme();
+                      } else if (child.label === "Dark Theme") {
+                        darkTheme();
+                      } else if (child.label === "2D") {
+                        setTwistyVisualization("2D");
+                      } else if (child.label === "3D") {
+                        setTwistyVisualization("3D");
+                      }
+                    }, 50);
+                  },
+                });
+              }
+            });
+          }
+
+          return results;
+        });
+      };
+
+      const childMatches = getChildMatches(mainItems);
+
+      return childMatches.map((item, index) => (
+        <CommandMenuItem key={index} {...item} />
+      ));
+    }
+
+    switch (page) {
+      case MENU_PAGES.DELETE_SOLVE:
+        return sessionSolves.map((solve, id) => (
+          <CommandMenuItem
+            key={id}
+            label={`${id} ${formatTime(solve.solveTime)} ${
+              solve.comment.trim() !== "" ? `[${solve.comment}]` : ""
+            }`}
+            onSelect={() => {
+              setOpen(false);
+              setTimeout(() => {
+                setSolveId(solve.id);
+                setIsDeleteSolveModal(true);
+              }, 64);
+            }}
+          />
+        ));
+
+      case MENU_PAGES.THEME:
+        return (
+          <>
+            <CommandMenuItem
+              icon={IconSun}
+              label="Light Theme"
+              onSelect={lightTheme}
+            />
+            <CommandMenuItem
+              icon={IconMoonStars}
+              label="Dark Theme"
+              onSelect={darkTheme}
+            />
+          </>
+        );
+
+      case MENU_PAGES.SCRAMBLE_VISUALIZATION:
+        return (
+          <>
+            <CommandMenuItem
+              label="2D"
+              icon={IconSquare}
+              onSelect={() => {
+                setTwistyVisualization("2D");
+                addToast({
+                  title: "2D visualization selected",
+                  variant: "success",
+                });
+                resetNavigation();
+                setOpen(false);
+              }}
+            />
+            <CommandMenuItem
+              label="3D"
+              icon={IconCube}
+              onSelect={() => {
+                setTwistyVisualization("3D");
+                addToast({
+                  title: "3D visualization selected",
+                  variant: "success",
+                });
+                resetNavigation();
+                setOpen(false);
+              }}
+            />
+          </>
+        );
+
+      case MENU_PAGES.CREATE_SESSION:
+        return (
+          search !== "" && (
+            <CommandMenuItem
+              label={`Create Session: ${search}`}
+              onSelect={createNewSession}
+            />
+          )
+        );
+
+      case MENU_PAGES.RENAME_SESSION:
+        return Object.keys(sessionData.sessions).map((session, id) => (
+          <CommandMenuItem
+            key={session}
+            label={`${id} ${session}`}
+            onSelect={() => navigateToPage(session)}
+          />
+        ));
+
+      case MENU_PAGES.DELETE_SESSION:
+        return Object.keys(sessionData.sessions).map((session, id) => (
+          <CommandMenuItem
+            key={id}
+            label={`${id} ${session}`}
+            onSelect={() => deleteSession(session)}
+          />
+        ));
+
       default:
-        return "What do you need?";
+        if (Object.keys(sessionData.sessions).includes(page)) {
+          return (
+            <CommandMenuItem
+              label={`Rename Session: ${page} → ${search}`}
+              onSelect={() => renameSession(page, search)}
+            />
+          );
+        }
+        return null;
     }
   };
-
-  useEffect(() => {
-    setSearch("");
-    setDisableTimerInput(open);
-  }, [open]);
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -168,7 +353,6 @@ const CommandMenu = ({
               <Dialog.Overlay className="fixed inset-0 bg-slate-900/[0.25]" />
             </m.div>
             <m.div
-              // key={pages.length}
               initial={{
                 opacity: shouldReduceMotion ? 1 : 0,
                 scale: shouldReduceMotion ? 1 : 1.2,
@@ -177,27 +361,16 @@ const CommandMenu = ({
                 opacity: 1,
                 scale: 1,
                 transition: {
-                  opacity: {
-                    duration: 0.1,
-                  },
-                  scale: {
-                    duration: 0.2,
-                    ease: [0, 0.75, 0.25, 1],
-                  },
+                  opacity: { duration: 0.1 },
+                  scale: { duration: 0.2, ease: [0, 0.75, 0.25, 1] },
                 },
               }}
               exit={{
                 opacity: shouldReduceMotion ? 1 : 0,
                 scale: shouldReduceMotion ? 1 : 0.8,
                 transition: {
-                  opacity: {
-                    duration: 0.1,
-                    delay: 0.1,
-                  },
-                  scale: {
-                    duration: 0.2,
-                    ease: [0.75, 0, 1, 0.25],
-                  },
+                  opacity: { duration: 0.1, delay: 0.1 },
+                  scale: { duration: 0.2, ease: [0.75, 0, 1, 0.25] },
                 },
               }}
               className="fixed top-0 z-[501] w-full min-w-64 max-w-lg sm:top-1/4 sm:w-8/12"
@@ -206,25 +379,12 @@ const CommandMenu = ({
                 <Command
                   value={value}
                   onValueChange={onValueChange}
-                  onKeyDown={(e) => {
-                    if (
-                      e.key === "Escape" ||
-                      (e.key === "Backspace" && !search)
-                    ) {
-                      e.preventDefault();
-                      setSearch("");
-                      setPages((pages) => pages.slice(0, -1));
-                    }
-                    if (pages.length === 0 && e.key === "Escape") {
-                      e.preventDefault();
-                      setOpen(false);
-                    }
-                  }}
+                  onKeyDown={handleKeyDown}
                   className="flex flex-col gap-2 rounded-lg bg-white shadow-xl dark:bg-slate-800"
                 >
                   <div className="flex items-center gap-1 px-2 pt-2">
                     <RippleButton
-                      onClick={() => setPages([])}
+                      onClick={resetNavigation}
                       tabIndex={-1}
                       className="rounded bg-neutral-200 px-1 py-0.5 text-sm transition-transform duration-200 active:scale-95 dark:bg-slate-700 dark:text-slate-200"
                     >
@@ -233,272 +393,37 @@ const CommandMenu = ({
                         <span>Home</span>
                       </div>
                     </RippleButton>
-                    {pages.map((page, id) => {
-                      return (
-                        <React.Fragment key={id}>
-                          <RippleButton
-                            tabIndex={-1}
-                            className="rounded bg-neutral-200 px-1 py-0.5 text-sm transition-transform duration-200 active:scale-95 dark:bg-slate-700 dark:text-slate-200"
-                            onClick={() => {
-                              if (
-                                pages.length - pages.indexOf(page) - 1 !==
-                                0
-                              ) {
-                                setPages((pages) =>
-                                  pages.slice(
-                                    0,
-                                    pages.length - pages.indexOf(page) - 1,
-                                  ),
-                                );
-                              }
-                            }}
-                          >
-                            {page}
-                          </RippleButton>
-                        </React.Fragment>
-                      );
-                    })}
+                    {pages.map((page, id) => (
+                      <RippleButton
+                        key={id}
+                        tabIndex={-1}
+                        className="rounded bg-neutral-200 px-1 py-0.5 text-sm transition-transform duration-200 active:scale-95 dark:bg-slate-700 dark:text-slate-200"
+                        onClick={() => {
+                          if (pages.length - pages.indexOf(page) - 1 !== 0) {
+                            setPages((pages) =>
+                              pages.slice(
+                                0,
+                                pages.length - pages.indexOf(page) - 1,
+                              ),
+                            );
+                          }
+                        }}
+                      >
+                        {page}
+                      </RippleButton>
+                    ))}
                   </div>
                   <Command.Input
                     value={search}
                     onValueChange={setSearch}
-                    placeholder={getInputPlaceholder()}
-                    className="border-b px-3.5 py-1 outline-none placeholder:text-slate-500 dark:border-slate-500  dark:bg-slate-800 dark:text-slate-200"
+                    placeholder={getInputPlaceholder(pages)}
+                    className="border-b px-3.5 py-1 outline-none placeholder:text-slate-500 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-200"
                   />
                   <Command.List className="max-h-none overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-green-900/50 scrollbar-thumb-rounded hover:scrollbar-thumb-green-900 dark:text-slate-200 dark:scrollbar-thumb-slate-500 dark:hover:scrollbar-thumb-slate-600 sm:max-h-96">
                     <Command.Empty>
                       No results found for '{search}'
                     </Command.Empty>
-                    {!page && (
-                      <>
-                        <Command.Item
-                          onSelect={(e) => {
-                            generateScramble();
-                            setOpen(false);
-                          }}
-                          className="flex select-none items-center justify-between rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          <div className="flex items-center gap-2">
-                            <IconReload
-                              size={18}
-                              className="text-neutral-400 dark:text-slate-400"
-                            />
-                            <span>Generate Scramble</span>
-                          </div>
-                        </Command.Item>
-                        <Command.Item
-                          onSelect={() => {
-                            setPages([...pages, "delete solve"]);
-                            setSearch("");
-                          }}
-                          className="flex select-none items-center gap-2 rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          <IconTrash
-                            size={18}
-                            className="text-neutral-400 dark:text-slate-400"
-                          />
-                          <span>Delete Solve</span>
-                        </Command.Item>
-                        <Command.Item
-                          onSelect={() => {
-                            setPages([...pages, "theme"]);
-                            setSearch("");
-                          }}
-                          className="flex select-none items-center gap-2 rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          <IconDeviceDesktop
-                            size={18}
-                            className="text-neutral-400 dark:text-slate-400"
-                          />
-                          <span>Theme</span>
-                        </Command.Item>
-                        <Command.Item
-                          onSelect={() => {
-                            setPages([...pages, "scramble visualization"]);
-                            setSearch("");
-                          }}
-                          className="flex select-none items-center gap-2 rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          <IconPerspective
-                            size={18}
-                            className="text-neutral-400 dark:text-slate-400"
-                          />
-                          <span>Scramble Visualization</span>
-                        </Command.Item>
-
-                        <Command.Item
-                          onSelect={() => {
-                            setPages([...pages, "create session"]);
-                            setSearch("");
-                          }}
-                          className="flex select-none items-center gap-2 rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          <IconPlus
-                            size={18}
-                            className="text-neutral-400 dark:text-slate-400"
-                          />
-                          <span>Create New Session</span>
-                        </Command.Item>
-                        <Command.Item
-                          onSelect={() => {
-                            setPages([...pages, "rename session"]);
-                            setSearch("");
-                          }}
-                          className="flex select-none items-center gap-2 rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          <IconForms
-                            size={18}
-                            className="text-neutral-400 dark:text-slate-400"
-                          />
-                          <span>Rename Session</span>
-                        </Command.Item>
-                        <Command.Item
-                          onSelect={() => {
-                            setPages([...pages, "delete session"]);
-                            setSearch("");
-                          }}
-                          className="flex select-none items-center gap-2 rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          <IconTrash
-                            size={18}
-                            className="text-neutral-400 dark:text-slate-400"
-                          />
-                          <span>Delete Session</span>
-                        </Command.Item>
-                      </>
-                    )}
-                    {page === "delete solve" &&
-                      sessionSolves.map((solve, id) => {
-                        return (
-                          <Command.Item
-                            key={id}
-                            onKeyDown={(e) => {
-                              console.log(e.key);
-                            }}
-                            onSelect={(e) => {
-                              setOpen(false);
-                              setTimeout(() => {
-                                setSolveId(solve.id);
-                                setIsDeleteSolveModal(true);
-                              }, 64);
-                            }}
-                            className="flex select-none items-center gap-2 rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                          >
-                            <span className="text-slate-400">{id}</span>
-                            <span className="flex items-center overflow-hidden">
-                              {formatTime(solve.solveTime)}
-                              {solve.comment.trim() !== "" && (
-                                <>
-                                  &nbsp;[
-                                  <span className="truncate">
-                                    {solve.comment}
-                                  </span>
-                                  ]
-                                </>
-                              )}
-                            </span>
-                          </Command.Item>
-                        );
-                      })}
-                    {page === "theme" && (
-                      <>
-                        <Command.Item
-                          key="light"
-                          onSelect={lightTheme}
-                          className="select-none rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          Light Theme
-                        </Command.Item>
-                        <Command.Item
-                          key="dark"
-                          onSelect={darkTheme}
-                          className="select-none rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          Dark Theme
-                        </Command.Item>
-                      </>
-                    )}
-                    {page === "scramble visualization" && (
-                      <>
-                        <Command.Item
-                          key="2D"
-                          onSelect={() => setTwistyVisualization("2D")}
-                          className="flex select-none items-center gap-2 rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          <IconSquare
-                            size={18}
-                            className="text-neutral-400 dark:text-slate-400"
-                          />
-                          <span>2D</span>
-                        </Command.Item>
-                        <Command.Item
-                          key="3D"
-                          onSelect={() => setTwistyVisualization("3D")}
-                          className="flex select-none items-center gap-2 rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          <IconCube
-                            size={18}
-                            className="text-neutral-400 dark:text-slate-400"
-                          />
-                          <span>3D</span>
-                        </Command.Item>
-                      </>
-                    )}
-                    {page === "create session" && (
-                      <>
-                        <Command.Item
-                          key="createSession"
-                          value={search}
-                          onSelect={createNewSession}
-                          className="select-none rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          {search !== "" ? `Create Session: ${search}` : ""}
-                        </Command.Item>
-                      </>
-                    )}
-                    {page === "rename session" &&
-                      Object.keys(sessionData.sessions).map((e, id) => {
-                        return (
-                          <Command.Item
-                            key={e}
-                            onSelect={() => setPages((prev) => [...prev, e])}
-                            className="flex select-none items-center gap-2 rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                          >
-                            <span className="text-slate-400">{id}</span>
-                            <span>{e}</span>
-                          </Command.Item>
-                        );
-                      })}
-                    {pages.includes("rename session") &&
-                      Object.keys(sessionData.sessions).includes(page) && (
-                        <Command.Item
-                          key="renameSession"
-                          onSelect={() => renameSession(page, search)}
-                          className="flex select-none items-center gap-2 rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                        >
-                          <span>
-                            Rename Session: {page} &rarr; {search}
-                          </span>
-                        </Command.Item>
-                      )}
-                    {page === "delete session" &&
-                      Object.keys(sessionData.sessions).map((session, id) => {
-                        return (
-                          <Command.Item
-                            key={id}
-                            value={session}
-                            onSelect={(keyToDelete) =>
-                              deleteSession(keyToDelete)
-                            }
-                            className="flex select-none items-center gap-2 rounded p-1 [&[data-selected='true']]:bg-neutral-100 [&[data-selected='true']]:dark:bg-slate-700"
-                          >
-                            <span className="text-slate-400">{id}</span>
-                            <span className="flex items-center overflow-hidden">
-                              {session}
-                            </span>
-                          </Command.Item>
-                        );
-                      })}
+                    {renderPageContent()}
                   </Command.List>
                 </Command>
               </Dialog.Content>

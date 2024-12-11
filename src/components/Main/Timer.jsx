@@ -114,7 +114,7 @@ const Timer = ({
         } flex-grow-1 h-full items-center justify-center overflow-hidden rounded-xl transition-colors duration-200`}
       >
         <div>
-          <div className="flex items-end gap-2">
+          <div className="flex items-end justify-between gap-2">
             <m.div
               layout
               className={`text-4xl font-medium ${
@@ -147,6 +147,7 @@ const Timer = ({
             <AnimatePresence mode="popLayout">
               {!isRunning && sessionSolves.length >= 2 && (
                 <m.div
+                  layout
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -211,12 +212,31 @@ const Timer = ({
                       ? "bg-red-500 dark:bg-red-400"
                       : "bg-green-500 dark:bg-green-400"
                   }`}
-                >
-                  {" "}
-                </m.div>
+                ></m.div>
               )}
             </AnimatePresence>
           </m.div>
+          {/* User instructions */}
+          <div className="mt-2 text-center text-sm text-slate-600 dark:text-slate-400">
+            {isRunning ? (
+              "Press SPACE to stop the timer"
+            ) : canStart ? (
+              <span className="text-green-600 dark:text-green-400">
+                Release SPACE to start!
+              </span>
+            ) : spacePressed ? (
+              <span className="text-red-600 dark:text-red-400">
+                Hold SPACE to prepare...
+              </span>
+            ) : (
+              <div className="space-y-1">
+                <div>Press and hold SPACE to start timer</div>
+                <div className="text-xs opacity-75">
+                  Press CTRL+K to open command palette
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

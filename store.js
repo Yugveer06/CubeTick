@@ -7,9 +7,6 @@ export const useAppState = create((set) => ({
   solveId: null,
   setSolveId: (e) => set(() => ({ solveId: e })),
 
-  sessionName: null,
-  setSessionName: (e) => set(() => ({ sessionName: e })),
-
   isSolveInfoModal: false,
   setIsSolveInfoModal: (e) => set(() => ({ isSolveInfoModal: e })),
 

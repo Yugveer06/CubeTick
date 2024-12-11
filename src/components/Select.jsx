@@ -21,7 +21,7 @@ function SelectComp({ sessionData, setSessionData }) {
         </Select.Icon>
       </Select.Trigger>
       <Select.Portal>
-        <Select.Content className="absolute z-50 overflow-hidden rounded bg-green-50 shadow-xl dark:bg-slate-700">
+        <Select.Content className="absolute z-[61] overflow-hidden rounded bg-green-50 shadow-xl dark:bg-slate-700">
           <Select.ScrollUpButton className="flex items-center justify-center bg-green-300 dark:bg-slate-500">
             <IconChevronUp
               size={20}

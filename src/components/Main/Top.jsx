@@ -24,20 +24,27 @@ function Top({
 
   useEffect(() => {
     generateScramble();
-    const player = new TwistyPlayer({
-      puzzle: wcaEvents[sessionData.currentEvent].puzzleID,
-      alg: scramble,
-      hintFacelets: "none",
-      backView: "top-right",
-      background: "none",
-      visualization: twistyVisualization,
-      controlPanel: "none",
-    });
-    document.getElementById("twisty-container").appendChild(player);
+    const currentEvent = sessionData.currentEvent;
+    const eventData = wcaEvents[currentEvent];
 
-    return () => {
-      document.getElementById("twisty-container").removeChild(player);
-    };
+    if (currentEvent && eventData) {
+      const player = new TwistyPlayer({
+        puzzle: eventData.puzzleID,
+        alg: scramble,
+        hintFacelets: "none",
+        backView: "top-right",
+        background: "none",
+        visualization: twistyVisualization,
+        controlPanel: "none",
+      });
+      document.getElementById("twisty-container").appendChild(player);
+
+      return () => {
+        document.getElementById("twisty-container").removeChild(player);
+      };
+    } else {
+      console.error("Invalid sessionData or wcaEvents configuration");
+    }
   }, []);
 
   useEffect(() => {

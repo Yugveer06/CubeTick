@@ -100,6 +100,13 @@ const Solves = ({ solvesWidth, sessionData, setSessionData }) => {
               </tr>
             </thead>
             <tbody>
+              {sortedSolves.length === 0 && (
+                <tr className="text-black dark:text-white  [&>td]:border [&>td]:border-green-700 [&>td]:text-center [&>td]:dark:border-slate-700">
+                  <td colSpan={4} className="p-4 text-center">
+                    No solves available
+                  </td>
+                </tr>
+              )}
               {sortedSolves.map((solve, index) => {
                 const i =
                   sortOrder === "asc" ? index : sortedSolves.length - 1 - index;
